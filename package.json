@@ -1,0 +1,24 @@
+{
+  "name": "logpipe",
+  "version": "0.1.0",
+  "description": "Ferramenta CLI para processamento de logs em grande volume",
+  "main": "bin/logpipe.js",
+  "bin": {
+    "logpipe": "./bin/logpipe.js"
+  },
+  "scripts": {
+    "start": "node bin/logpipe.js",
+    "test": "jest"
+  },
+  "keywords": ["logs", "cli", "stream", "processing"],
+  "author": "Gabriel Vellasco",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.0",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^17.2.2",
+    "jest": "^30.1.3",
+    "ndjson": "^2.0.0",
+    "pino": "^9.9.4"
+  }
+}
