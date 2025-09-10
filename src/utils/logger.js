@@ -15,3 +15,9 @@ const loggerOptions = {
         }
     } : undefined
 }
+
+//Create logger instance
+const logger = pino(loggerOptions);
+
+module.exports = logger;
+
