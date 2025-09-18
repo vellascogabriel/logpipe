@@ -1,6 +1,7 @@
 const FilterTransformer = require('./filterTransformer');
 const { MapTransformer, createMapper, createFieldSelector } = require('./mapTransformer');
 const { AggregateTransformer, createCounter, createStats } = require('./aggregateTransformer');
+const { WorkerTransformer, createWorkerTransformer } = require('./workerTransformer');
 const logger = require('../utils/logger');
 
 /**
@@ -129,6 +130,51 @@ class TransformerFactory {
       return result;
     }, {
       name: 'Normalizer',
+      ...options
+    });
+  }
+
+  /**
+   * Cria um transformador que utiliza worker threads para processamento paralelo
+   * @param {string} taskType - Tipo de tarefa a ser executada pelos workers
+   * @param {Object} options - Opções adicionais
+   * @returns {WorkerTransformer} - Transformador com worker threads
+   */
+  static createWorkerTransformer(taskType, options = {}) {
+    return createWorkerTransformer(taskType, options);
+  }
+
+  /**
+   * Cria um transformador de hash que utiliza worker threads para processamento intensivo
+   * @param {string} field - Campo a ser hasheado
+   * @param {Object} options - Opções adicionais
+   * @returns {WorkerTransformer} - Transformador de hash
+   */
+  static createHasher(field, options = {}) {
+    return createWorkerTransformer('hash', {
+      name: 'Hasher',
+      workerData: {
+        field,
+        iterations: options.iterations || 10000,
+        resultField: options.resultField || `${field}Hash`
+      },
+      ...options
+    });
+  }
+
+  /**
+   * Cria um transformador de enriquecimento que usa worker threads para adicionar dados externos
+   * @param {Object} enrichments - Objeto com campos a serem adicionados
+   * @param {Object} options - Opções adicionais
+   * @returns {WorkerTransformer} - Transformador de enriquecimento
+   */
+  static createEnricher(enrichments, options = {}) {
+    return createWorkerTransformer('transform', {
+      name: 'Enricher',
+      workerData: {
+        transformType: 'addFields',
+        fields: enrichments
+      },
       ...options
     });
   }

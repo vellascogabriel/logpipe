@@ -11,6 +11,7 @@ const logger = require('../src/utils/logger');
 const { createParserForFile } = require('../src/parsers/parserFactory');
 const TransformerFactory = require('../src/transformers/transformerFactory');
 const { Transform } = require('stream');
+const os = require('os');
 
 // Configure CLI
 program
@@ -20,7 +21,7 @@ program
     .option('-o, --output <path>', 'Output log file path')
     .option('-f, --format <format>', 'File format (ndjson, csv)', 'ndjson')
     .option('-b, --batch-size <size>', 'Batch size for processing', '1000')
-    .option('-w, --workers <count>', 'Number of worker processes', '1')
+    .option('-w, --workers <count>', 'Number of worker processes', String(os.cpus().length))
     .option('-p, --profile', 'Enable performance profiling')
     .option('-c, --checkpoint <path>', 'Checkpoint file to resume processing')
     .option('--csv-separator <char>', 'CSV separator character', ',')
@@ -30,6 +31,9 @@ program
     .option('--count-by <field>', 'Count records by field')
     .option('--stats <keyField:valueField>', 'Calculate statistics for numeric field grouped by key')
     .option('--pretty-output', 'Format JSON output with indentation', false)
+    .option('--parallel', 'Use worker threads for parallel processing', false)
+    .option('--hash-field <field>', 'Calculate hash for specified field (CPU intensive)')
+    .option('--enrich', 'Add processing metadata to records', false)
     .parse(process.argv);
 
 const options = program.opts();
@@ -83,13 +87,27 @@ class JSONStringifier extends Transform {
 // Função para criar transformadores com base nas opções da CLI
 function createTransformers() {
     const transformers = [];
+    const numWorkers = parseInt(options.workers, 10);
+    
+    // Verifica se deve usar worker threads para processamento paralelo
+    const useWorkers = options.parallel || options.hashField;
     
     // Adiciona filtro se especificado
     if (options.filter) {
         const [field, value] = options.filter.split(':');
         if (field && value) {
             const filterCriteria = { [field]: value };
-            transformers.push(TransformerFactory.createFilter(filterCriteria));
+            
+            if (useWorkers) {
+                // Versão com worker threads
+                transformers.push(TransformerFactory.createWorkerTransformer('filter', {
+                    workerData: { criteria: filterCriteria },
+                    numWorkers
+                }));
+            } else {
+                // Versão sem worker threads
+                transformers.push(TransformerFactory.createFilter(filterCriteria));
+            }
         }
     }
     
@@ -98,6 +116,37 @@ function createTransformers() {
         const fields = options.select.split(',').map(f => f.trim());
         if (fields.length > 0) {
             transformers.push(TransformerFactory.createFieldSelector(fields));
+        }
+    }
+    
+    // Adiciona hash se especificado (sempre usa worker threads por ser CPU intensivo)
+    if (options.hashField) {
+        transformers.push(TransformerFactory.createHasher(options.hashField, {
+            numWorkers
+        }));
+    }
+    
+    // Adiciona enriquecimento se especificado
+    if (options.enrich) {
+        const enrichments = {
+            processedAt: new Date().toISOString(),
+            processedBy: 'LogPipe',
+            version: package.version,
+            hostname: os.hostname()
+        };
+        
+        if (useWorkers) {
+            // Versão com worker threads
+            transformers.push(TransformerFactory.createEnricher(enrichments, {
+                numWorkers
+            }));
+        } else {
+            // Versão sem worker threads
+            transformers.push(TransformerFactory.createFieldAdder(
+                Object.fromEntries(
+                    Object.entries(enrichments).map(([key, value]) => [key, () => value])
+                )
+            ));
         }
     }
     
@@ -124,7 +173,8 @@ async function main() {
             input: options.input,
             format: options.format,
             batchSize: options.batchSize,
-            workers: options.workers
+            workers: options.workers,
+            parallel: options.parallel
         }, 'Starting LogPipe processing');
 
         // Cria um stream de progresso para monitorar o processamento
@@ -157,6 +207,9 @@ async function main() {
             transformers: transformers.map(t => t.constructor.name)
         }, 'Processing pipeline configured');
         
+        // Registra manipuladores para sinais do sistema
+        setupSignalHandlers();
+        
         await processFile(options.input, outputStream, pipeline);
         
         logger.info('Processing completed successfully');
@@ -166,17 +219,20 @@ async function main() {
     }
 }
 
-// Tratamento de sinais para encerramento gracioso
-process.on('SIGINT', () => {
-    logger.info('Received SIGINT signal. Shutting down...');
-    // Nos próximos passos, implementaremos salvamento de checkpoints aqui
-    process.exit(0);
-});
+// Configura manipuladores para sinais do sistema
+function setupSignalHandlers() {
+    // Tratamento de sinais para encerramento gracioso
+    process.on('SIGINT', () => {
+        logger.info('Received SIGINT signal. Shutting down...');
+        // Nos próximos passos, implementaremos salvamento de checkpoints aqui
+        process.exit(0);
+    });
 
-process.on('SIGTERM', () => {
-    logger.info('Received SIGTERM signal. Shutting down...');
-    process.exit(0);
-});
+    process.on('SIGTERM', () => {
+        logger.info('Received SIGTERM signal. Shutting down...');
+        process.exit(0);
+    });
+}
 
 // Inicia o processamento
 main();
