@@ -5,6 +5,9 @@ const { program } = require('commander')
 const path = require('path')
 const fs = require('fs')
 const package = require('../package.json')
+const { createReadStream, processFile } = require('../readers/fileReader')
+const ProgressStream = require('../src/utils/progressStream')
+const logger = require('../src/utils/logger')
 
 //Configure CLI
 program
@@ -33,8 +36,47 @@ if(!fs.existsSync(options.input)){
     process.exit(1);
 }
 
-//Adding principal logic(to do)
+let outputStream;
 
-console.log('Logpipe starting with the following options:', options);
-console.log('Pending implementation')
+if(options.output){
+    outputStream = fs.createWriteStream(options.output);
+    logger.info(`Output will be written to ${options.output}`);
+} else {
+    outputStream = process.stdout;
+    logger.info('Output will be written to stdout');
+}
+
+
+async function main() {
+    try {
+
+        logger.info({
+            input: options.input,
+            format: options.format,
+            batchSize: options.batchSize,
+            workers: options.workers
+        }, 'Starting Logpipe processing')
+
+        const progressStream = new ProgressStream(options.input);
+
+        await processFile(options.input, outputStream, [progressStream]);
+        logger.info('Logpipe processing completed');
+    } catch (error) {
+        logger.error('Error starting Logpipe processing', error);
+        process.exit(1);
+    }
+}
+
+process.on('SIGINT', () => {
+    logger.info('Logpipe process interrupted by user');
+    process.exit(0);
+})
+
+process.on('SIGTERM', () => {
+    logger.info('Logpipe process interrupted by user');
+    process.exit(0);
+})
+
+main();
+
 
