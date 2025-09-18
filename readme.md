@@ -63,6 +63,47 @@ logpipe -i arquivo.json --parallel -w 4
 logpipe -i arquivo.json --hash-field "id"
 ```
 
+## Checkpoints e Retomada de Processamento
+
+LogPipe pode salvar o progresso periodicamente e retomar o processamento a partir do último ponto em caso de interrupção:
+
+```bash
+# Habilitar checkpoints
+logpipe -i arquivo.json -c checkpoint.json
+
+# Especificar o intervalo de salvamento de checkpoints (em ms)
+logpipe -i arquivo.json -c checkpoint.json --checkpoint-interval 60000
+
+# Retomar o processamento a partir de um checkpoint existente
+# (use o mesmo comando que foi interrompido)
+logpipe -i arquivo.json -c checkpoint.json
+```
+
+Quando o processamento é interrompido (por exemplo, com Ctrl+C), o LogPipe salva o estado atual em um arquivo de checkpoint. Na próxima execução, ele detecta automaticamente que deve retomar o processamento a partir do último ponto salvo.
+
+## Análise de Performance (Profiling)
+
+LogPipe inclui ferramentas de profiling para analisar o desempenho do processamento:
+
+```bash
+# Habilitar profiling
+logpipe -i arquivo.json -p
+
+# Especificar o diretório para relatórios de profiling
+logpipe -i arquivo.json -p --profile-dir "./profiling-reports"
+
+# Especificar o intervalo de coleta de métricas (em ms)
+logpipe -i arquivo.json -p --profile-interval 10000
+```
+
+O profiler coleta métricas de:
+- Uso de CPU
+- Uso de memória
+- Eventos de garbage collection
+- Tempo de execução de cada etapa do processamento
+
+Os relatórios são salvos em arquivos JSON no diretório de profiling e incluem tanto dados detalhados quanto um resumo das métricas coletadas.
+
 ## Envio para Endpoint HTTP
 
 LogPipe pode enviar dados processados para um endpoint HTTP em lotes:
