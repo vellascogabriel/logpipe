@@ -10,6 +10,7 @@ const ProgressStream = require('../src/utils/progressStream');
 const logger = require('../src/utils/logger');
 const { createParserForFile } = require('../src/parsers/parserFactory');
 const TransformerFactory = require('../src/transformers/transformerFactory');
+const SenderFactory = require('../src/senders/senderFactory');
 const { Transform } = require('stream');
 const os = require('os');
 
@@ -34,6 +35,13 @@ program
     .option('--parallel', 'Use worker threads for parallel processing', false)
     .option('--hash-field <field>', 'Calculate hash for specified field (CPU intensive)')
     .option('--enrich', 'Add processing metadata to records', false)
+    // Opções para envio HTTP
+    .option('--http-endpoint <url>', 'HTTP endpoint URL to send data to')
+    .option('--http-method <method>', 'HTTP method (POST, PUT)', 'POST')
+    .option('--http-batch-size <size>', 'Number of records to send in each HTTP request', '100')
+    .option('--http-retries <count>', 'Number of retries for failed HTTP requests', '3')
+    .option('--http-timeout <ms>', 'HTTP request timeout in milliseconds', '30000')
+    .option('--http-headers <headers>', 'HTTP headers in JSON format')
     .parse(process.argv);
 
 const options = program.opts();
@@ -52,15 +60,44 @@ if(!fs.existsSync(options.input)){
 }
 
 // Determine output destination
-let outputStream;
-if (options.output) {
-    // Se um arquivo de saída foi especificado, cria um stream de escrita
-    outputStream = fs.createWriteStream(options.output);
-    logger.info(`Output will be written to: ${options.output}`);
-} else {
-    // Caso contrário, usa stdout
-    outputStream = process.stdout;
+function createOutputSender() {
+    // Se um endpoint HTTP foi especificado, cria um HttpSender
+    if (options.httpEndpoint) {
+        logger.info(`Output will be sent to HTTP endpoint: ${options.httpEndpoint}`);
+        
+        // Parse HTTP headers if provided
+        let headers = {};
+        if (options.httpHeaders) {
+            try {
+                headers = JSON.parse(options.httpHeaders);
+            } catch (error) {
+                logger.error(`Invalid HTTP headers JSON: ${error.message}`);
+                process.exit(1);
+            }
+        }
+        
+        return SenderFactory.createHttpSender(options.httpEndpoint, {
+            method: options.httpMethod,
+            batchSize: parseInt(options.httpBatchSize, 10),
+            retries: parseInt(options.httpRetries, 10),
+            timeout: parseInt(options.httpTimeout, 10),
+            headers
+        });
+    }
+    
+    // Se um arquivo de saída foi especificado, cria um FileSender
+    if (options.output) {
+        logger.info(`Output will be written to file: ${options.output}`);
+        return SenderFactory.createFileSender(options.output, {
+            encoding: 'utf8'
+        });
+    }
+    
+    // Caso contrário, usa ConsoleSender
     logger.info('Output will be written to stdout');
+    return SenderFactory.createConsoleSender({
+        pretty: options.prettyOutput
+    });
 }
 
 // Stream de transformação para serializar objetos de volta para JSON
@@ -174,7 +211,8 @@ async function main() {
             format: options.format,
             batchSize: options.batchSize,
             workers: options.workers,
-            parallel: options.parallel
+            parallel: options.parallel,
+            httpEndpoint: options.httpEndpoint
         }, 'Starting LogPipe processing');
 
         // Cria um stream de progresso para monitorar o processamento
@@ -190,27 +228,40 @@ async function main() {
         // Cria transformadores com base nas opções da CLI
         const transformers = createTransformers();
         
-        // Cria um stream para serializar objetos de volta para JSON
-        const stringifier = new JSONStringifier({ prettyOutput: options.prettyOutput });
+        // Determina o destino de saída (HTTP, arquivo ou console)
+        const outputSender = createOutputSender();
         
-        // Configura a pipeline de processamento completa:
-        // arquivo -> descompressão -> progresso -> parser -> transformadores -> stringifier -> saída
-        const pipeline = [
-            progressStream,
-            parser,
-            ...transformers,
-            stringifier
-        ];
+        // Configura a pipeline de processamento completa
+        let pipeline;
+        
+        if (options.httpEndpoint) {
+            // Se estiver enviando para HTTP, não precisa do stringifier
+            pipeline = [
+                progressStream,
+                parser,
+                ...transformers
+            ];
+        } else {
+            // Caso contrário, adiciona o stringifier para converter objetos em JSON
+            const stringifier = new JSONStringifier({ prettyOutput: options.prettyOutput });
+            pipeline = [
+                progressStream,
+                parser,
+                ...transformers,
+                stringifier
+            ];
+        }
         
         logger.debug({
             pipelineSteps: pipeline.length,
-            transformers: transformers.map(t => t.constructor.name)
+            transformers: transformers.map(t => t.constructor.name),
+            outputType: options.httpEndpoint ? 'HTTP' : (options.output ? 'File' : 'Console')
         }, 'Processing pipeline configured');
         
         // Registra manipuladores para sinais do sistema
         setupSignalHandlers();
         
-        await processFile(options.input, outputStream, pipeline);
+        await processFile(options.input, outputSender, pipeline);
         
         logger.info('Processing completed successfully');
     } catch (error) {
