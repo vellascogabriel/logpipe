@@ -1,145 +1,147 @@
 # LogPipe
 
-LogPipe é uma ferramenta de linha de comando para processamento eficiente de grandes arquivos de log, com suporte a transformações, filtragem e envio de dados para endpoints HTTP.
+LogPipe is a command-line tool for efficient processing of large log files, with support for transformations, filtering, and sending data to HTTP endpoints.
 
-## Características
+![LogPipe Architecture](./LOGPIPE.jpg)
 
-- Processamento de arquivos grandes com uso eficiente de memória usando streams
-- Suporte a múltiplos formatos de entrada (NDJSON, CSV)
-- Transformações de dados (filtro, mapeamento, agregação)
-- Processamento paralelo com worker threads
-- Envio de dados em lotes para endpoints HTTP
-- Tratamento robusto de erros e retentativas
-- Monitoramento de progresso em tempo real
+## Features
 
-## Instalação
+- Processing of large files with efficient memory usage using streams
+- Support for multiple input formats (NDJSON, CSV)
+- Data transformations (filter, mapping, aggregation)
+- Parallel processing with worker threads
+- Batch sending of data to HTTP endpoints
+- Robust error handling and retries
+- Real-time progress monitoring
+
+## Installation
 
 ```bash
-# Clone o repositório
-git clone https://github.com/seu-usuario/logpipe.git
+# Clone the repository
+git clone https://github.com/your-username/logpipe.git
 cd logpipe
 
-# Instale as dependências
+# Install dependencies
 npm install
 
-# Torne o comando executável
+# Make the command executable
 npm link
 ```
 
-## Uso Básico
+## Basic Usage
 
 ```bash
-# Processar um arquivo NDJSON e exibir na saída padrão
-logpipe -i arquivo.json
+# Process a NDJSON file and display to standard output
+logpipe -i file.json
 
-# Processar um arquivo CSV e salvar em um arquivo de saída
-logpipe -i arquivo.csv -o saida.json --format csv
+# Process a CSV file and save to an output file
+logpipe -i file.csv -o output.json --format csv
 
-# Filtrar registros por campo
-logpipe -i arquivo.json --filter "level:error"
+# Filter records by field
+logpipe -i file.json --filter "level:error"
 
-# Selecionar apenas campos específicos
-logpipe -i arquivo.json --select "timestamp,message,level"
+# Select only specific fields
+logpipe -i file.json --select "timestamp,message,level"
 
-# Contar registros por campo
-logpipe -i arquivo.json --count-by "level"
+# Count records by field
+logpipe -i file.json --count-by "level"
 
-# Calcular estatísticas para um campo numérico
-logpipe -i arquivo.json --stats "level:responseTime"
+# Calculate statistics for a numeric field
+logpipe -i file.json --stats "level:responseTime"
 ```
 
-## Processamento Paralelo
+## Parallel Processing
 
-LogPipe suporta processamento paralelo usando worker threads para melhorar o desempenho em tarefas intensivas de CPU:
+LogPipe supports parallel processing using worker threads to improve performance in CPU-intensive tasks:
 
 ```bash
-# Usar processamento paralelo com o número padrão de workers (igual ao número de CPUs)
-logpipe -i arquivo.json --parallel
+# Use parallel processing with the default number of workers (equal to the number of CPUs)
+logpipe -i file.json --parallel
 
-# Especificar o número de workers
-logpipe -i arquivo.json --parallel -w 4
+# Specify the number of workers
+logpipe -i file.json --parallel -w 4
 
-# Calcular hash para um campo (sempre usa workers por ser CPU intensivo)
-logpipe -i arquivo.json --hash-field "id"
+# Calculate hash for a field (always uses workers as it's CPU intensive)
+logpipe -i file.json --hash-field "id"
 ```
 
-## Checkpoints e Retomada de Processamento
+## Checkpoints and Processing Resume
 
-LogPipe pode salvar o progresso periodicamente e retomar o processamento a partir do último ponto em caso de interrupção:
+LogPipe can save progress periodically and resume processing from the last point in case of interruption:
 
 ```bash
-# Habilitar checkpoints
-logpipe -i arquivo.json -c checkpoint.json
+# Enable checkpoints
+logpipe -i file.json -c checkpoint.json
 
-# Especificar o intervalo de salvamento de checkpoints (em ms)
-logpipe -i arquivo.json -c checkpoint.json --checkpoint-interval 60000
+# Specify checkpoint saving interval (in ms)
+logpipe -i file.json -c checkpoint.json --checkpoint-interval 60000
 
-# Retomar o processamento a partir de um checkpoint existente
-# (use o mesmo comando que foi interrompido)
-logpipe -i arquivo.json -c checkpoint.json
+# Resume processing from an existing checkpoint
+# (use the same command that was interrupted)
+logpipe -i file.json -c checkpoint.json
 ```
 
-Quando o processamento é interrompido (por exemplo, com Ctrl+C), o LogPipe salva o estado atual em um arquivo de checkpoint. Na próxima execução, ele detecta automaticamente que deve retomar o processamento a partir do último ponto salvo.
+When processing is interrupted (for example, with Ctrl+C), LogPipe saves the current state in a checkpoint file. On the next execution, it automatically detects that it should resume processing from the last saved point.
 
-## Análise de Performance (Profiling)
+## Performance Analysis (Profiling)
 
-LogPipe inclui ferramentas de profiling para analisar o desempenho do processamento:
+LogPipe includes profiling tools to analyze processing performance:
 
 ```bash
-# Habilitar profiling
-logpipe -i arquivo.json -p
+# Enable profiling
+logpipe -i file.json -p
 
-# Especificar o diretório para relatórios de profiling
-logpipe -i arquivo.json -p --profile-dir "./profiling-reports"
+# Specify directory for profiling reports
+logpipe -i file.json -p --profile-dir "./profiling-reports"
 
-# Especificar o intervalo de coleta de métricas (em ms)
-logpipe -i arquivo.json -p --profile-interval 10000
+# Specify metrics collection interval (in ms)
+logpipe -i file.json -p --profile-interval 10000
 ```
 
-O profiler coleta métricas de:
-- Uso de CPU
-- Uso de memória
-- Eventos de garbage collection
-- Tempo de execução de cada etapa do processamento
+The profiler collects metrics on:
+- CPU usage
+- Memory usage
+- Garbage collection events
+- Execution time of each processing step
 
-Os relatórios são salvos em arquivos JSON no diretório de profiling e incluem tanto dados detalhados quanto um resumo das métricas coletadas.
+Reports are saved as JSON files in the profiling directory and include both detailed data and a summary of the collected metrics.
 
-## Envio para Endpoint HTTP
+## HTTP Endpoint Delivery
 
-LogPipe pode enviar dados processados para um endpoint HTTP em lotes:
+LogPipe can send processed data to an HTTP endpoint in batches:
 
 ```bash
-# Enviar dados para um endpoint HTTP
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs"
+# Send data to an HTTP endpoint
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs"
 
-# Especificar o método HTTP (padrão: POST)
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs" --http-method "PUT"
+# Specify HTTP method (default: POST)
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs" --http-method "PUT"
 
-# Configurar o tamanho do lote (padrão: 100)
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs" --http-batch-size 50
+# Configure batch size (default: 100)
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs" --http-batch-size 50
 
-# Configurar retentativas e timeout
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs" --http-retries 5 --http-timeout 60000
+# Configure retries and timeout
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs" --http-retries 5 --http-timeout 60000
 
-# Adicionar cabeçalhos HTTP personalizados
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs" --http-headers '{"Authorization": "Bearer token123"}'
+# Add custom HTTP headers
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs" --http-headers '{"Authorization": "Bearer token123"}'
 ```
 
-## Servidor de Teste
+## Test Server
 
-O projeto inclui um servidor HTTP de teste para facilitar o desenvolvimento e testes:
+The project includes a test HTTP server to facilitate development and testing:
 
 ```bash
-# Iniciar o servidor de teste
+# Start the test server
 node src/test/testServer.js
 
-# Em outro terminal, enviar dados para o servidor
-logpipe -i arquivo.json --http-endpoint "http://localhost:3000/logs"
+# In another terminal, send data to the server
+logpipe -i file.json --http-endpoint "http://localhost:3000/logs"
 ```
 
-O servidor de teste salva os lotes recebidos em arquivos JSON no diretório `test-output/` para inspeção.
+The test server saves received batches as JSON files in the `test-output/` directory for inspection.
 
-## Opções Completas
+## Complete Options
 
 ```
 Options:
@@ -170,12 +172,12 @@ Options:
   -h, --help                   display help for command
 ```
 
-## Exemplos de Uso Avançado
+## Advanced Usage Examples
 
-### Pipeline de ETL Completo
+### Complete ETL Pipeline
 
 ```bash
-# Extrair dados de um arquivo CSV, transformar e enviar para um endpoint HTTP
+# Extract data from a CSV file, transform and send to an HTTP endpoint
 logpipe -i logs.csv --format csv \
   --filter "status:error" \
   --select "timestamp,message,errorCode,userId" \
@@ -184,10 +186,10 @@ logpipe -i logs.csv --format csv \
   --http-headers '{"X-API-Key": "your-api-key"}'
 ```
 
-### Análise de Logs com Agregação
+### Log Analysis with Aggregation
 
 ```bash
-# Contar erros por código de erro e salvar em um arquivo
+# Count errors by error code and save to a file
 logpipe -i logs.json \
   --filter "level:error" \
   --count-by "errorCode" \
@@ -195,10 +197,10 @@ logpipe -i logs.json \
   -o error-summary.json
 ```
 
-### Processamento de Arquivos Grandes com Paralelismo
+### Processing Large Files with Parallelism
 
 ```bash
-# Processar um arquivo grande com worker threads e enviar para HTTP
+# Process a large file with worker threads and send to HTTP
 logpipe -i huge-logs.json \
   --parallel \
   -w 8 \
@@ -207,6 +209,6 @@ logpipe -i huge-logs.json \
   --http-batch-size 200
 ```
 
-## Licença
+## License
 
 MIT
