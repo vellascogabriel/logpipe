@@ -10,7 +10,12 @@
     "start": "node bin/logpipe.js",
     "test": "jest"
   },
-  "keywords": ["logs", "cli", "stream", "processing"],
+  "keywords": [
+    "logs",
+    "cli",
+    "stream",
+    "processing"
+  ],
   "author": "Gabriel Vellasco",
   "license": "MIT",
   "dependencies": {
@@ -19,6 +24,7 @@
     "dotenv": "^17.2.2",
     "jest": "^30.1.3",
     "ndjson": "^2.0.0",
-    "pino": "^9.9.4"
+    "pino": "^9.9.4",
+    "pino-pretty": "^13.1.1"
   }
 }

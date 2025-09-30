@@ -42,4 +42,43 @@ class ProgressTracker {
             
         }
     }
+
+    /**
+     * Relata o progresso atual do processamento
+     */
+    reportProgress() {
+        const elapsedSeconds = (Date.now() - this.startTime) / 1000;
+        const mbProcessed = this.bytesProcessed / (1024 * 1024);
+        const mbTotal = this.fileSize / (1024 * 1024);
+        const percentComplete = this.fileSize > 0 ? (this.bytesProcessed / this.fileSize) * 100 : 0;
+        const mbPerSecond = mbProcessed / elapsedSeconds;
+
+        logger.info({
+            file: this.filePath,
+            processed: `${mbProcessed.toFixed(2)} MB`,
+            total: `${mbTotal.toFixed(2)} MB`,
+            percent: `${percentComplete.toFixed(2)}%`,
+            speed: `${mbPerSecond.toFixed(2)} MB/s`,
+            elapsed: `${elapsedSeconds.toFixed(2)}s`
+        }, 'Processing progress');
+    }
+
+    /**
+     * Finaliza o rastreamento e exibe o relatório final
+     */
+    finish() {
+        if (this.finished) return;
+        
+        this.finished = true;
+        this.reportProgress();
+        
+        const totalTime = (Date.now() - this.startTime) / 1000;
+        logger.info({
+            file: this.filePath,
+            totalProcessed: `${(this.bytesProcessed / (1024 * 1024)).toFixed(2)} MB`,
+            totalTime: `${totalTime.toFixed(2)}s`
+        }, 'Processing completed');
+    }
 }
+
+module.exports = ProgressTracker;

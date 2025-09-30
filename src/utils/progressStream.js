@@ -21,7 +21,7 @@ class ProgressStream extends Transform {
    */
 
     _transform(chunck, encoding, callback){
-        this.tracker.update(chunck.length);
+        this.progressTracker.update(chunck.length);
 
         this.push(chunck);
         callback();
@@ -32,7 +32,7 @@ class ProgressStream extends Transform {
      * @param {function} callback - Função de callback a ser chamada quando terminar
      */
     _flush(callback){
-        this.tracker.finish();
+        this.progressTracker.finish();
         callback();
     }
 }
